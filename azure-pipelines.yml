@@ -17,13 +17,19 @@ stages:
         workspace:
           clean: all
         steps:
-          - script: docker build -t $(registry_url)/weight-tracker1:latest .
+          - powershell: |
+              if ( docker images $(registry_url)/weight-tracker -q )
+              {
+                docker rmi $(docker images  $(registry_url)/weight-tracker -q)
+              }
+            displayName: remove previous docker images
+          - script: docker build -t $(registry_url)/weight-tracker:latest .
             displayName: Build an image
 
           - script: docker login -u $(registry_username) -p $(registry_password) $(registry_url)
             displayName: connect to azure container registry
 
-          - script: docker push $(registry_url)/weight-tracker1:latest
+          - script: docker push $(registry_url)/weight-tracker:latest
             condition: and(succeeded(), eq(variables['build.sourceBranch'], 'refs/heads/main'))
             displayName: Push the image to ther docker hub repository
 
