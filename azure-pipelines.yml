@@ -1,7 +1,7 @@
 name: Kubernetes pipeline
 
 trigger:
-  - master
+  - main
   - feature/*
 
 pool: default
@@ -31,12 +31,12 @@ stages:
             displayName: connect to azure container registry
 
           - script: docker push $(registry_url)/weight-tracker:latest
-            condition: and(succeeded(), eq(variables['build.sourceBranch'], 'refs/heads/master'))
+            condition: and(succeeded(), eq(variables['build.sourceBranch'], 'refs/heads/main'))
             displayName: Push the image to ther docker hub repository
 
   # Continuous Deployment Process for Staging Environment
   - stage: DeployToKubernetes
-    condition: and(succeeded(), eq(variables['build.sourceBranch'], 'refs/heads/master'))
+    condition: and(succeeded(), eq(variables['build.sourceBranch'], 'refs/heads/main'))
     jobs:
       - deployment: kubernetes
         displayName: Deploy to kubernetes
