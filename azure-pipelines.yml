@@ -1,0 +1,123 @@
+name: Kubernetes pipeline
+
+trigger:
+  - master
+  - feature/*
+
+pool: default
+
+variables:
+  - group: common
+
+stages:
+  # Continuous Integration Process
+  - stage: CI
+    jobs:
+      - job: BuildAndPushDocker
+        workspace:
+          clean: all
+        steps:
+          - powershell: |
+              if ( docker images $(registry_url)/weight-tracker -q )
+              {
+                docker rmi $(docker images  $(registry_url)/weight-tracker -q)
+              }
+            displayName: remove previous docker images
+
+          - script: docker build -t $(registry_url)/weight-tracker:latest .
+            displayName: Build an image
+
+          - script: docker login -u $(registry_username) -p $(registry_password) $(registry_url)
+            displayName: connect to azure container registry
+
+          - script: docker push $(registry_url)/weight-tracker:latest
+            condition: and(succeeded(), eq(variables['build.sourceBranch'], 'refs/heads/master'))
+            displayName: Push the image to ther docker hub repository
+
+  # Continuous Deployment Process for Staging Environment
+  - stage: DeployToKubernetes
+    condition: and(succeeded(), eq(variables['build.sourceBranch'], 'refs/heads/master'))
+    jobs:
+      - deployment: kubernetes
+        displayName: Deploy to kubernetes
+        environment: pool
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - powershell: |
+                    if (kubectl get secret regcred){
+                      kubectl delete secret regcred
+                    }
+                    kubectl create secret docker-registry regcred --docker-server=$(registry_url) --docker-username=$(registry_username) --docker-password=$(registry_password)
+                  displayName: create secret regcred
+
+                - script: kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.2.0/deploy/static/provider/cloud/deploy.yaml
+                  displayName: deploy ingress controller
+
+                - powershell: Start-Sleep -Seconds 30
+                  displayName: wait 30 seconds
+
+                - powershell: |
+                    kubectl apply -f ingress.yaml
+                  displayName: apply ingress yaml
+
+                - powershell: kubectl apply -f db.yaml
+                  displayName: apply db yaml
+
+                - powershell: |
+                    #regex pattern to check ip
+                    $IPpattern = "^([1-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])(\.([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])){3}$"
+                    $IP=""
+                    #while loop running until ip is found
+                    while ($IP -notmatch $IPpattern) {
+                      kubectl get ingress | %{$_ -split "\n"} | Select-Object -index 1 | %{$_ -split '\s+'} | Select-Object -index 3 -outvariable IP;
+                       Write-Host "##vso[task.setvariable variable=IP;]$IP"
+                       Start-Sleep -Seconds 3
+                    }
+                  displayName: get ingress IP
+                
+                - powershell: |
+                    #regex pattern to check ip
+                    $IPpattern = "^([1-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])(\.([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])){3}$"
+                    $pg_ip=""
+                    #while loop running until ip is found
+                    while ($pg_ip -notmatch $IPpattern) {
+                      kubectl get svc postgres-service | %{$_ -split "\n"} | Select-Object -index 1 | %{$_ -split '\s+'} | Select-Object -index 2  -outvariable pg_ip
+                      Write-Host "##vso[task.setvariable variable=pg_ip;]$pg_ip"
+                      Start-Sleep -Seconds 3
+                    }
+                  displayName: get postgres IP
+
+                - powershell: |
+                    kubectl delete secret env
+                    kubectl create secret generic env `
+                      --from-literal=PORT=8080 `
+                      --from-literal=PGHOST=$(pg_ip) `
+                      --from-literal=PGUSERNAME=$(pg_username) `
+                      --from-literal=PGDATABASE=postgres `
+                      --from-literal=PGPASSWORD=$(pg_password) `
+                      --from-literal=PGPORT=5432 `
+                      --from-literal=COOKIE_ENCRYPT_PWD=$(cookie_pwd)
+
+                  displayName: create env
+
+                - powershell: |
+                    kubectl delete configmap oktadata 
+                    kubectl create configmap oktadata `
+                    --from-literal=HOST_URL="http://$(IP)" `
+                    --from-literal=OKTA_ORG_URL=$(okta_org_url) `
+                    --from-literal=OKTA_CLIENT_ID=$(okta_client_id) `
+                    --from-literal=OKTA_CLIENT_SECRET=$(okta_client_secret)
+                  displayName: create oktadata configmap
+
+                - powershell: kubectl apply -f weightTrackerApp.yaml
+                  displayName: apply weightTrackerApp yaml
+                
+                - powershell: | 
+                     kubectl get pods --selector=name=webapp-* | %{$_ -split "\n"} | Select-Object -index 2 | %{$_ -split '\s+'} | Select-Object -index 0 -outvariable pod;
+                     kubectl exec $pod -- sh -c "cd /usr/src/app/ && npm run initdb"     
+                  displayName: npm run initdb
+
+                - powershell: kubectl rollout status Deployment/webapp
+                  displayName: check deployment status

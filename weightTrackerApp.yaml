@@ -1,0 +1,100 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: webapp
+  labels:
+    app: webapp
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: webapp
+  template:
+    metadata:
+      labels:
+        app: webapp
+    spec:
+      containers:
+      - image: weighttracker.azurecr.io/weight-tracker
+        name: weight-tracker
+        ports:
+          - containerPort: 8080
+        env:
+        - name: PORT
+          valueFrom:
+            secretKeyRef:
+              name: env
+              key: PORT
+        - name: HOST
+          value: 0.0.0.0
+        - name: PGHOST
+          valueFrom:
+            secretKeyRef:
+              name: env
+              key: PGHOST
+        - name: PGUSERNAME
+          valueFrom:
+            secretKeyRef:
+              name: env
+              key: PGUSERNAME
+        - name: PGDATABASE
+          valueFrom:
+            secretKeyRef:
+              name: env
+              key: PGDATABASE
+        - name: PGPASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: env
+              key: PGPASSWORD
+        - name: PGPORT
+          valueFrom:
+            secretKeyRef:
+              name: env
+              key: PGPORT
+
+        - name:  COOKIE_ENCRYPT_PWD
+          valueFrom:
+            secretKeyRef:
+              name: env
+              key: COOKIE_ENCRYPT_PWD
+        - name: NODE_ENV
+          value: development 
+        - name: HOST_URL
+          valueFrom:
+            configMapKeyRef:
+              name: oktadata
+              key: HOST_URL
+        - name:  OKTA_ORG_URL
+          valueFrom:
+            configMapKeyRef:
+              name: oktadata
+              key: OKTA_ORG_URL
+        - name: OKTA_CLIENT_ID
+          valueFrom:
+            configMapKeyRef:
+              name: oktadata
+              key: OKTA_CLIENT_ID
+        - name: OKTA_CLIENT_SECRET
+          valueFrom:
+            configMapKeyRef:
+              name: oktadata
+              key: OKTA_CLIENT_SECRET
+      imagePullSecrets:
+      - name: regcred
+
+---
+
+kind: Service
+apiVersion: v1
+metadata:
+  name: webapp-service
+  labels:
+    app: webapp
+spec:
+  selector:
+    app: webapp
+  ports:
+    - port: 80
+      targetPort: 8080
+      
