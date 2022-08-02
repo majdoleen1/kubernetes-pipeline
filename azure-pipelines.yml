@@ -99,7 +99,7 @@ stages:
                     kubectl delete configmap oktadata 
                     kubectl create configmap oktadata `
                     --from-literal=HOST_URL="http://$(IP)" `
-                    --from-literal=OKTA_ORG_URL=$(okta_org_url) `
+                    --from-literal=OKTA_ORG_URL=$(okta_url) `
                     --from-literal=OKTA_CLIENT_ID=$(okta_client_id) `
                     --from-literal=OKTA_CLIENT_SECRET=$(okta_client_secret)
                   displayName: create oktadata configmap
