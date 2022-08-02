@@ -17,13 +17,6 @@ stages:
         workspace:
           clean: all
         steps:
-          - powershell: |
-              if ( docker images $(registry_url)/weight-tracker -q )
-              {
-                docker rmi $(docker images  $(registry_url)/weight-tracker -q)
-              }
-            displayName: remove previous docker images
-
           - script: docker build -t $(registry_url)/weight-tracker:latest .
             displayName: Build an image
 
