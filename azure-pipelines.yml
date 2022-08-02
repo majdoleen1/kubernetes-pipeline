@@ -17,7 +17,7 @@ stages:
         workspace:
           clean: all
         steps:
-          - script: docker login -u $(registry_username) -p $(registry_password) $(registry_url)
+          - script: docker login --username $(registry_username)  --password-stdin $(registry_password) $(registry_url)
             displayName: connect to azure container registry
 
           - script: docker build -t $(registry_url)/weight-tracker1:latest .
