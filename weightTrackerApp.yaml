@@ -15,8 +15,8 @@ spec:
         app: webapp
     spec:
       containers:
-      - image: weighttracker.azurecr.io/weight-tracker
-        name: weight-tracker
+      - image: weighttracker1.azurecr.io/weight-tracker1
+        name: weight-tracker1
         ports:
           - containerPort: 8080
         env:
