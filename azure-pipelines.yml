@@ -17,6 +17,7 @@ stages:
         workspace:
           clean: all
         steps:
+         steps:
           - script: docker build -t $(registry_url)/weight-tracker1:latest .
             displayName: Build an image
 
