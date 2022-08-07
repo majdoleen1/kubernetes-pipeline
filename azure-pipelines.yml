@@ -32,7 +32,7 @@ stages:
     condition: and(succeeded(), eq(variables['build.sourceBranch'], 'refs/heads/main'))
     jobs:
       - deployment: kubernetes
-        displayName: Deploy to kubernetes
+        displayName: Deploy to kubernetes staging
         environment: staging
         strategy:
           runOnce:
@@ -127,7 +127,7 @@ stages:
     condition: and(succeeded(), eq(variables['build.sourceBranch'], 'refs/heads/main'))
     jobs:
       - deployment: kubernetes
-        displayName: Deploy to kubernetes
+        displayName: Deploy to kubernetes Production
         environment: Production
         strategy:
           runOnce:
